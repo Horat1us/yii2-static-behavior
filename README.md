@@ -5,12 +5,12 @@
 This package implements static behavior to allow you append behavior-like
 event handlers to external objects.
 
-Usage example:  
+Usage example:
 You use package that contains ActiveRecord. If you need to handle some
 events of this record (beforeInsert, afterInsert etc.), this package definitely
 for you.
 
-It uses `yii\base\Event::on()` and `yii\base\Event::off()` under the hood.
+It uses static `yii\base\Event::on()` and `yii\base\Event::off()` under the hood.
 
 The main advantage of using this static behavior:
 - event handler class (**ItemInterface**) will be instantiated before event will be called,
@@ -22,7 +22,7 @@ composer require horat1us/yii2-static-behavior
 ```
 
 ## Structure
-- [StaticBehavior](./src/StaticBehavior.php) - main class that deals with attaching 
+- [StaticBehavior](./src/StaticBehavior.php) - main class that deals with attaching
 and detaching handlers.
 - [Bootstrap](./src/StaticBehavior/Bootstrap.php) - configurable application
 bootstrap class. It use **StaticBehavior** to attach handlers before application
@@ -31,6 +31,9 @@ request and detach after request.
 (to be used in **StaticBehavior**).
 - [Item](./src/StaticBehavior/Item.php) - abstract **ItemInterface** implementation.
 Allows to configure handlers (for example methods) for different events.
+- [Bootstrap\Behavior](src/StaticBehavior/Bootstrap/Behavior.php) - behavior to attach handlers
+before action and detach after controller/module action. Should be used if some handlers will be used only when
+module executed.
 
 ## Usage
 
@@ -49,7 +52,8 @@ use yii\db;
 use yii\base;
 use Horat1us\Yii\StaticBehavior;
 
-class ExternalRecord extends db\ActiveRecord {
+class ExternalRecord extends db\ActiveRecord
+{
     // some implementation you cannot change
 }
 
@@ -66,7 +70,7 @@ $staticBehavior = new StaticBehavior([
         db\ActiveRecord::EVENT_INIT => [
             // or use interface to implement items
             'class' => StaticBehavior\ItemInterface::class,
-        ],     
+        ],
     ],
 ]);
 
@@ -75,7 +79,7 @@ $staticBehavior->attach();
 
 // To detach attached event handlers from class
 $staticBehavior->detach();
-``` 
+```
 
 ### Bootstrap
 
@@ -119,26 +123,27 @@ use yii\di;
  * Class Item
  * @package Example
  */
-class Item extends StaticBehavior\Item {
-    /** 
+class Item extends StaticBehavior\Item
+{
+    /**
      * Configurable dependency
-     * @var string|array|db\Connection reference 
+     * @var string|array|db\Connection reference
      */
     public $db;
-    
+
     /**
      * Constructor dependency
      * @var web\Request
      */
     protected  $request;
-    
+
     public function init(): void
     {
         parent::init();
         // Ensuring dependencies
         $this->db = di\Instance::ensure($this->db, db\Connection::class);
     }
-    
+
     public function handlers(): array
     {
         return [
@@ -152,17 +157,141 @@ class Item extends StaticBehavior\Item {
             },
         ];
     }
-    
+
     protected function beforeInsert(base\Event $event): void
     {
         // handle event
     }
-    
+
     protected function afterInsert(db\AfterSaveEvent $event): void
     {
         // handle evnet
     }
 }
+```
+
+### Bootstrap\Behavior
+This behavior should be used when some handlers will be used only in one module.
+For example:
+- sending messages after authentication
+- sending message with token for two-factor authentication
+
+It can be used with controller or any another component (you will need to configure events).
+
+```php
+<?php
+
+namespace Example;
+
+use Horat1us\Yii\StaticBehavior;
+use yii\base;
+use yii\web;
+
+interface Delivery {
+    public function send(string $recipient, string $message);
+}
+
+interface Token {
+    public function getValue(): string;
+    public function getOwner(): string;
+}
+
+/**
+* Class ActionLogin
+ * @package Example
+ */
+class ActionLogin extends base\Action
+{
+    public const EVENT_TOKEN = 'token';
+
+    public function run() {
+        // Create token here
+        /** @var Token $token */
+
+        $this->trigger(static::EVENT_TOKEN, new base\Event([
+            'data' => $token,
+        ]));
+
+        return ['state' => 'ok'];
+    }
+}
+
+/**
+* Class AuthenticationController
+ * @package Example
+ */
+class AuthenticationController extends web\Controller
+{
+    public function actions(): array
+    {
+        return [
+            'login' => ActionLogin::class,
+        ];
+    }
+}
+
+/**
+* Class TokenItem
+ * @package Example
+ */
+class TokenItem extends StaticBehavior\Item
+{
+    /** @var Delivery  */
+    protected $delivery;
+
+    public function __construct(Delivery $delivery, array $config = [])
+    {
+        parent::__construct($config);
+        $this->delivery = $delivery;
+    }
+
+    public function handlers(): array {
+        return [
+            ActionLogin::EVENT_TOKEN => 'handleTokenEvent',
+        ];
+    }
+
+    /**
+     * @param base\Event $event
+     * @throws \InvalidArgumentException
+     */
+    public function handleTokenEvent(base\Event $event): void
+    {
+        if(!$event->data instanceof Token) {
+            throw new \InvalidArgumentException("Cannot handle event without token data.");
+        }
+        $token = $event->data;
+        $this->delivery->send(
+            $recipient = $token->getOwner(),
+            $message = $token->getValue()
+        );
+    }
+}
+
+class Module extends base\Module {
+    public $controllerMap = [
+        'class' => AuthenticationController::class,
+        'as staticLogin' => [
+            'class' => StaticBehavior\Bootstrap\Behavior::class,
+            'events' => [
+                // handlers will be attached only before controller run
+                base\Controller::EVENT_BEFORE_ACTION => 'beforeAction',
+                base\Controller::EVENT_AFTER_ACTION => 'afterAction',
+            ],
+            'behaviors' => [
+                [
+                    'class' => StaticBehavior::class,
+                    'target' => ActionLogin::class,
+                    'items' => [
+                        'sendToken' => TokenItem::class,
+                    ],
+                ],
+            ],
+        ],
+    ];
+}
+
+// append module to your application
 ```
 
 [Detailed example](./examples/static-behavior.php)
