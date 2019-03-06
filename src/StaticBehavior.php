@@ -104,12 +104,12 @@ class StaticBehavior extends base\BaseObject
         $handler($event);
     }
 
-    final protected function on(string $event, callable $handler): void
+    protected function on(string $event, callable $handler): void
     {
         base\Event::on($this->target, $event, $handler);
     }
 
-    final protected function off(string $event, callable $handler): void
+    protected function off(string $event, callable $handler): void
     {
         base\Event::off($this->target, $event, $handler);
     }
