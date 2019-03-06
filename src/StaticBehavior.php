@@ -16,6 +16,7 @@ class StaticBehavior extends base\BaseObject
     /** @var string class name to attach */
     public $target;
 
+    /** @var \Closure[]|array[]|string[]|StaticBehavior\ItemInterface[] references */
     public $items = [];
 
     /**
