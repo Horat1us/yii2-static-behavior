@@ -46,7 +46,7 @@ class ItemTest extends TestCase
     }
 
     /**
-     * @covers \Horat1us\Yii\StaticBehavior\Item::init()
+     * @covers \Horat1us\Yii\StaticBehavior\Item::__invoke()
      */
     public function testInvokeInvalidEvent(): void
     {
