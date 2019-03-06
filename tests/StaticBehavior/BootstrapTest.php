@@ -7,8 +7,8 @@ namespace Horat1us\Yii\Tests\StaticBehavior;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Horat1us\Yii\StaticBehavior;
-use yii\base;
 use yii\console;
+use yii\base;
 
 /**
  * Class BootstrapTest
