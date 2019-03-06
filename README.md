@@ -1,4 +1,5 @@
 # Yii2 Static Behavior
+[![Build Status](https://travis-ci.org/Horat1us/yii2-static-behavior.svg?branch=master)](https://travis-ci.org/Horat1us/yii2-static-behavior)
 
 This package implements static behavior to allow you append behavior-like
 event handlers to external objects.
