@@ -81,6 +81,8 @@ $staticBehavior->attach();
 $staticBehavior->detach();
 ```
 
+[Detailed example](./examples/static-behavior.php)
+
 ### Bootstrap
 
 To bootstrap your application you should use [Bootstrap](./src/StaticBehavior/Bootstrap.php).
@@ -108,67 +110,7 @@ Main purpose of items - lazy dependency injection for event handlers.
 You can define dependencies in constructor or use yii2-way configuration (prefered).
 
 Item that handles `yii\db\ActiveRecord` events:
-```php
-<?php
-
-namespace Example;
-
-use Horat1us\Yii\StaticBehavior;
-use yii\base;
-use yii\web;
-use yii\db;
-use yii\di;
-
-/**
- * Class Item
- * @package Example
- */
-class Item extends StaticBehavior\Item
-{
-    /**
-     * Configurable dependency
-     * @var string|array|db\Connection reference
-     */
-    public $db;
-
-    /**
-     * Constructor dependency
-     * @var web\Request
-     */
-    protected  $request;
-
-    public function init(): void
-    {
-        parent::init();
-        // Ensuring dependencies
-        $this->db = di\Instance::ensure($this->db, db\Connection::class);
-    }
-
-    public function handlers(): array
-    {
-        return [
-            // using method handler defined as string with name
-            db\ActiveRecord::EVENT_BEFORE_INSERT => 'beforeInsert',
-            // using method handler defined as array callable
-            db\ActiveRecord::EVENT_AFTER_INSERT => 'afterInsert',
-            // using \Closure handler
-            db\ActiveRecord::EVENT_INIT => function(base\Event $event): void {
-                // handle event
-            },
-        ];
-    }
-
-    protected function beforeInsert(base\Event $event): void
-    {
-        // handle event
-    }
-
-    protected function afterInsert(db\AfterSaveEvent $event): void
-    {
-        // handle evnet
-    }
-}
-```
+[Example (handle `yii\db\ActiveRecord` events)](./examples/item.php)
 
 ### Bootstrap\Behavior
 This behavior should be used when some handlers will be used only in one module.
@@ -178,123 +120,7 @@ For example:
 
 It can be used with controller or any another component (you will need to configure events).
 
-```php
-<?php
-
-namespace Example;
-
-use Horat1us\Yii\StaticBehavior;
-use yii\base;
-use yii\web;
-
-interface Delivery {
-    public function send(string $recipient, string $message);
-}
-
-interface Token {
-    public function getValue(): string;
-    public function getOwner(): string;
-}
-
-/**
-* Class ActionLogin
- * @package Example
- */
-class ActionLogin extends base\Action
-{
-    public const EVENT_TOKEN = 'token';
-
-    public function run() {
-        // Create token here
-        /** @var Token $token */
-
-        $this->trigger(static::EVENT_TOKEN, new base\Event([
-            'data' => $token,
-        ]));
-
-        return ['state' => 'ok'];
-    }
-}
-
-/**
-* Class AuthenticationController
- * @package Example
- */
-class AuthenticationController extends web\Controller
-{
-    public function actions(): array
-    {
-        return [
-            'login' => ActionLogin::class,
-        ];
-    }
-}
-
-/**
-* Class TokenItem
- * @package Example
- */
-class TokenItem extends StaticBehavior\Item
-{
-    /** @var Delivery  */
-    protected $delivery;
-
-    public function __construct(Delivery $delivery, array $config = [])
-    {
-        parent::__construct($config);
-        $this->delivery = $delivery;
-    }
-
-    public function handlers(): array {
-        return [
-            ActionLogin::EVENT_TOKEN => 'handleTokenEvent',
-        ];
-    }
-
-    /**
-     * @param base\Event $event
-     * @throws \InvalidArgumentException
-     */
-    public function handleTokenEvent(base\Event $event): void
-    {
-        if(!$event->data instanceof Token) {
-            throw new \InvalidArgumentException("Cannot handle event without token data.");
-        }
-        $token = $event->data;
-        $this->delivery->send(
-            $recipient = $token->getOwner(),
-            $message = $token->getValue()
-        );
-    }
-}
-
-class Module extends base\Module {
-    public $controllerMap = [
-        'class' => AuthenticationController::class,
-        'as staticLogin' => [
-            'class' => StaticBehavior\Bootstrap\Behavior::class,
-            'events' => [
-                // handlers will be attached only before controller run
-                base\Controller::EVENT_BEFORE_ACTION => 'beforeAction',
-                base\Controller::EVENT_AFTER_ACTION => 'afterAction',
-            ],
-            'behaviors' => [
-                [
-                    'class' => StaticBehavior::class,
-                    'target' => ActionLogin::class,
-                    'items' => [
-                        'sendToken' => TokenItem::class,
-                    ],
-                ],
-            ],
-        ],
-    ];
-}
-
-// append module to your application
-```
-
-[Detailed example](./examples/static-behavior.php)
+[Example (authorization tokens)](./examples/bootstrap-behavior.php)
 
 ## Contributors
 - [Alexander <Horat1us> Letnikow](mailto:reclamme@gmail.com)
