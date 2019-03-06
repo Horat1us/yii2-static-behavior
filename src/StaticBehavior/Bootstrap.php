@@ -17,6 +17,9 @@ class Bootstrap extends base\BaseObject implements base\BootstrapInterface
     /** @var array[]|string[]|StaticBehavior[] references */
     public $behaviors = [];
 
+    /**
+     * @throws base\InvalidConfigException
+     */
     public function init(): void
     {
         parent::init();
